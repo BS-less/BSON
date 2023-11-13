@@ -1,0 +1,28 @@
+// This is a comment
+// This is an integer
+integer 1
+// This is a decimal
+decimal 3.14
+// This is a string
+// Secret comment
+string "Hello World!"
+// This is an array
+array [ 1 2 3 4 ]
+// This is an object
+object {
+    integer 2
+    decimal 5.56
+    array [ 2.1 3.2 4.3 5.4 ]
+}
+
+texture {
+    info {
+		name    "Grass"
+		path    "grass.png"
+		author  "Joseph"
+    }
+    cols   16
+    rows   16
+    cellw  48
+    cellh  64
+}

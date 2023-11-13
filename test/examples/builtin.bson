@@ -1,0 +1,35 @@
+scope {
+    flags {
+        likes-cats    $true
+        likes-dogs    $true
+        is-false      $false
+        exists        $void
+    }
+    people [
+		{
+            first  "Henry"
+            last   "Cabbage"
+            age     27
+            hungry $false
+            desc	\I like hippos\
+        }
+        {
+            first  "Russel"
+            last   "Steel"
+            age     30
+            hungry $true
+            desc	\I need to bulk rn\
+        }
+        {
+            first  "Samantha"
+            last   "Rodgers"
+            age     28
+            hungry $false
+            desc	\I like bumble-bees and
+					\ pancakes!\
+        }
+    ]
+    otherwise [ "good" $true ]
+}
+
+

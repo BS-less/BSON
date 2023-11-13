@@ -1,0 +1,30 @@
+o1 {
+	o2 {
+		o3 {
+			arr [
+	            \1 This is a
+                \ mult-line string
+                \ of text.\
+                \2 This is a
+                \ second line of
+                \ multi-line
+                \ text.\
+            ]
+            esc \3 This text has multiple
+                \ escape sequences.\n
+                \I hope this feature is really cool.\n\
+		}
+        esc \Test test test\n
+            \test test test\n
+            \\ttest test test\n
+            \\ttest test test\n\
+    }
+    esc \String string string\n
+        \string string string\n
+        \\tstring string string\n
+        \\tstring string string\n\
+}
+esc \I don't need "quotes" for
+    \ multi-line strings anymore!\n
+    \neat!\
+
