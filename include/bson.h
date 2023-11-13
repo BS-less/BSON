@@ -12,6 +12,7 @@
 typedef struct BsonNode         BsonNode;
 typedef struct BsonParseContext BsonParseContext;
 typedef bsonenum (*pfn_bson_builtin)(const BsonParseContext *ctx, BsonNode *node, void *userdata);
+typedef struct BsonLib BsonLib;
 
 typedef struct BsonHints {
     BsonLog           *log;
