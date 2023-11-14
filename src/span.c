@@ -12,9 +12,9 @@ size_t bson_span_len(const BsonSpan * const span) {
     return (size_t)(span->end - span->start);
 }
 
-char *bson_span_dup(const BsonSpan *span) {
+char *bson_span_dup(const BsonSpan *span, const BsonAllocator *allocator) {
 	size_t i, len = bson_span_len(span);
-	char *cstr = bsonmalloc(len + 1);
+	char *cstr = allocator->pfn_malloc(len + 1, allocator->userdata);
 	for(i = 0; i < len; i++)
 		cstr[i] = span->start[i];
 	cstr[i] = '\0';

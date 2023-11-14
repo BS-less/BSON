@@ -25,11 +25,26 @@ scope {
         9.8
     ]
     str_array [
-        "This" "is" "a" "series"
-        "of" "strings" "," "I" "hope"
-        "this" "works" "smoothly" "for"
-        "me" "and" "the" "future" "of"
-        "simple" "configurations"
+        "This" 
+        "is" 
+        "a" 
+        "series"
+        "of" 
+        "strings" 
+        "," 
+        "I" 
+        "hope"
+        "this" 
+        "works" 
+        "smoothly" 
+        "for"
+        "me" 
+        "and" 
+        "the" 
+        "future" 
+        "of"
+        "simple" 
+        "configurations"
     ]
     vec_array [
         { x 1 y 2 }

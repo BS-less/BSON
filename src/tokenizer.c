@@ -122,11 +122,11 @@ static int token_builtin(BsonToken *dst, BsonSpan *all, size_t *lines) {
     return 1;
 }
 
-BsonToken *bson_tokenize(const char *text, size_t *len, BsonLog *log) {
+BsonToken *bson_tokenize(const char *text, size_t *len, const BsonAllocator *allocator) {
 	assert(text != NULL && "No text provided for tokenization");
 	assert(len  != NULL && "Len destination must be provided");
 
-    BsonToken *tokens = bson_vector_new_cap(BsonToken, 96);
+    BsonToken *tokens = bson_vector_new_cap(BsonToken, 96, allocator);
     
 	size_t i, lines = 1;
 	BsonToken tok;
@@ -139,7 +139,10 @@ BsonToken *bson_tokenize(const char *text, size_t *len, BsonLog *log) {
         switch(*all.start) {
             /* Syntax error */
             default:
-                bson_logf(log, "[BSON-SYNTAX]: Unknown character '%c' @ line %lu.\n", *all.start, lines);
+                bson_span_dpri(&all);
+                printf("THIS IS A SYNTAX ERROR: Unknown character '%c' @ line %lu.\n", *all.start, lines);
+                assert(0 && "TODO: SYNTAX ERROR");
+                /* bson_logf(log, "[BSON-SYNTAX]: Unknown character '%c' @ line %lu.\n", *all.start, lines); */
                 all.start++;
                 continue;
                 break;
@@ -178,7 +181,7 @@ BsonToken *bson_tokenize(const char *text, size_t *len, BsonLog *log) {
                 all.start++;
                 assert(all.start != all.end && "TODO: FIX THIS EDGE CASE");
                 if(*all.start != '/') {
-                    bsonfree(tokens);
+                    bson_vector_free(tokens);
                     return NULL;
                 }
                 while(*all.start != '\n')
@@ -197,20 +200,17 @@ BsonToken *bson_tokenize(const char *text, size_t *len, BsonLog *log) {
         if(success)
             bson_vector_push(tokens, tok);	
         else {
-            bson_logf(log, "[BSON-SYNTAX]: Could not parse '");
+            assert(0 && "TODO: Impossible token");
+            //bson_logf(log, "[BSON-SYNTAX]: Could not parse '");
             char *s = tok.text.start;
-            while(s != tok.text.end)
+            /*while(s != tok.text.end)
                 bson_logf(log, "%c", *s);
-            bson_logf(log, "' @ line %lu.\n", lines);
+            bson_logf(log, "' @ line %lu.\n", lines); */
         }
         all.start++;
     }
 	*len = bson_vector_length(tokens);
     return bson_vector_carr(tokens);
-}
-
-void bson_tokens_free(BsonToken **tokens) {
-    bson_carr_deallocate((void **)tokens);
 }
 
 #define TABBING 48

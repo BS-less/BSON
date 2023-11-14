@@ -1,5 +1,4 @@
 #include "vector.h"
-#include "memory.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,16 +9,18 @@
 #define GET_METADATA(p)                                    \
     ((BsonVecMD *)( (uint8_t *)(p) - sizeof(BsonVecMD) ))
 
-void *bson_vector_allocate(size_t capacity, size_t stride) {
+void *bson_vector_allocate(size_t stride, size_t capacity, const BsonAllocator *allocator) {
     assert(stride != 0 && "Stride cannot be zero.");
     BsonVecMD metadata = {
-        .length    = 0,
-        .capacity  = capacity == 0 ? 16 : capacity,
-        .stride    = stride
+        .length    =  0,
+        .capacity  =  capacity == 0 ? 16 : capacity,
+        .stride    =  stride,
+        .allocator = *allocator
     };
-    uint8_t *bytes = bsonmalloc(
+    uint8_t *bytes = allocator->pfn_malloc(
         sizeof(BsonVecMD) + 
-        metadata.stride * metadata.capacity
+        metadata.stride * metadata.capacity,
+        allocator->userdata
     );
     BsonVecMD *md = (BsonVecMD *)(bytes);
     *md = metadata;
@@ -30,7 +31,7 @@ void  bson_vector_deallocate(void **vec) {
     if(vec == NULL || *vec == NULL)
         return;
     BsonVecMD *md = GET_METADATA(*vec);
-    bsonfree(md);
+    md->allocator.pfn_free(md, md->allocator.userdata);
     *vec = NULL;
 }
 
@@ -56,10 +57,11 @@ size_t bson_vector_stride(void *vec) {
 void *bson_vector_grow(void *vec) {
     BsonVecMD *md = GET_METADATA(vec);
     size_t newcapacity = md->capacity * 3 / 2;
-    md = bsonrealloc(
+    md = md->allocator.pfn_realloc(
         md,
         sizeof(BsonVecMD) +
-        newcapacity * md->stride
+        newcapacity * md->stride,
+        md->allocator.userdata
     );
     assert(md != NULL && "Memory failure");
     md->capacity = newcapacity;
@@ -74,21 +76,13 @@ void bson_vector_inc(void *vec) {
 void *bson_vector_carr(void *vec) {
     BsonVecMD *md = GET_METADATA(vec);
     size_t constrain = md->length * md->stride;
-    if(constrain == 0) {
-        bsonfree(md);
-        return NULL;
-    }
-	memmove(md, md + 1, constrain);
-    md = bsonrealloc(md, constrain);
+	assert(constrain != 0 && "Constrain is zero");
+    pfn_bson_realloc  pfn_realloc = md->allocator.pfn_realloc;
+    void             *userdata    = md->allocator.userdata; 
+    memmove(md, md + 1, constrain);
+    md = pfn_realloc(md, constrain, userdata);
     assert(md != NULL && "Memory constrain failure (carr)");
 	return md;
-}
-
-void bson_carr_deallocate(void **arr) {
-    if(arr == NULL || *arr == NULL)
-        return;
-    bsonfree(*arr);
-    *arr = NULL;
 }
 
 
