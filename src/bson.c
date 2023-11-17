@@ -2,13 +2,14 @@
 #include "span.h"
 #include "tokenizer.h"
 #include "vector.h"
+#include "log.h"
+#include "defalloc.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
-#include "defalloc.h"
 
 static BsonResult defbuiltin(BsonNode *dst, const BsonToken *token, void *userdata) {
     BsonSpan btrue, bfalse, bvoid;
@@ -36,6 +37,7 @@ static BsonResult defbuiltin(BsonNode *dst, const BsonToken *token, void *userda
 struct BsonLib {
     BsonAllocator     allocator;
     BsonBuiltin      *builtins;
+    BsonLog           log;
     int               freeafteruse;
 };
 
@@ -58,6 +60,10 @@ BsonLib *bson_lib_create(BsonResult *result, BsonLogLevel log, const BsonAllocat
     size_t i;
     for(i = 0; i < nbuiltins; i++)
         bson_vector_push(lib->builtins, builtins[i]);
+    
+    if(log > BSON_LOG_NONE && log < BSON_LOG_MAX)
+        bson_log_init(&lib->log, log, allocator);
+    else memset(&lib->log, 0, sizeof(BsonLog));
 
     *result = BSON_SUCCESS;
     return lib;
@@ -67,8 +73,17 @@ void bson_lib_free(BsonLib **lib) {
     if(lib == NULL || *lib == NULL)
         return;
     bson_vector_free((*lib)->builtins);
+    bson_log_free(&(*lib)->log);
     (*lib)->allocator.pfn_free(*lib, (*lib)->allocator.userdata);
     *lib = NULL;
+}
+
+const char *bson_lib_log_get(BsonLib *lib) {
+    return lib->log.buffer;
+}
+
+void bson_lib_log_clear(BsonLib *lib) {
+    bson_log_clear(&lib->log);
 }
 
 typedef struct BsonContext {
@@ -77,7 +92,7 @@ typedef struct BsonContext {
     size_t     index;
 } BsonContext;
 
-static int fix_string(const BsonLib *lib, char **src) {
+static int fix_string(BsonLib *lib, char **src) {
 	char *str = *src;
     size_t i, len = strlen(str);
     for(i = len; i --> 0;) {
@@ -128,7 +143,7 @@ static int parse_dbl(BsonNode *dst, BsonToken *src) {
     return 1;
 }
 
-static int parse_str(const BsonLib *lib, BsonNode *dst, BsonToken *src) {
+static int parse_str(BsonLib *lib, BsonNode *dst, BsonToken *src) {
     dst->str = bson_span_dup(&src->text, &lib->allocator);
     fix_string(lib, &dst->str);
     dst->numchildren = 0;
@@ -136,7 +151,7 @@ static int parse_str(const BsonLib *lib, BsonNode *dst, BsonToken *src) {
     return 1;
 }
 
-static int parse_multistr(const BsonLib *lib, BsonNode *dst, BsonContext *ctx) {
+static int parse_multistr(BsonLib *lib, BsonNode *dst, BsonContext *ctx) {
     char   *str = bson_span_dup(&ctx->tokens[ctx->index].text, &lib->allocator);
     char   *tmp;
     size_t  slen = strlen(str), tlen;
@@ -166,7 +181,7 @@ static int parse_multistr(const BsonLib *lib, BsonNode *dst, BsonContext *ctx) {
     return 1;
 }
 
-static int parse_builtin(const BsonLib *lib, BsonNode *dst, BsonContext *ctx) {
+static int parse_builtin(BsonLib *lib, BsonNode *dst, BsonContext *ctx) {
     size_t i, nbuiltins = bson_vector_length(lib->builtins);
     BsonResult ret;
     for(i = 0; i < nbuiltins; i++) {
@@ -187,10 +202,10 @@ static int parse_builtin(const BsonLib *lib, BsonNode *dst, BsonContext *ctx) {
     return 0;
 }
 
-static BsonNode *parse_obj(const BsonLib *lib, BsonContext *ctx, size_t *children); 
-static BsonNode *parse_arr(const BsonLib *lib, BsonContext *ctx, size_t *children);
+static BsonNode *parse_obj(BsonLib *lib, BsonContext *ctx, size_t *children); 
+static BsonNode *parse_arr(BsonLib *lib, BsonContext *ctx, size_t *children);
 
-static int interpret_node(const BsonLib *lib, BsonContext *ctx, BsonNode *node) {
+static int interpret_node(BsonLib *lib, BsonContext *ctx, BsonNode *node) {
     size_t children;
     switch(ctx->tokens[ctx->index].type) {
         case TOKEN_INTEGER: parse_lng(     node, &ctx->tokens[ctx->index]); break;
@@ -218,15 +233,14 @@ static int interpret_node(const BsonLib *lib, BsonContext *ctx, BsonNode *node) 
             node->numchildren = children;
             break;
         default: {
-			/*bson_logf(ctx->log, "[BSON-SYNTAX]: Unexpected token \"");
+			bson_logf(&lib->log, BSON_LOG_NORMAL, "[BSON-SYNTAX]: Unexpected token \"");
 			BsonSpan *badtext = &ctx->tokens[ctx->index].text;
 			char *c = badtext->start;
 			while(*c && c != badtext->end) {
-				bson_logf(ctx->log, "%c", *c);
+				bson_logc(&lib->log, BSON_LOG_NORMAL, *c);
 				c++;
 			}
-			bson_logf(ctx->log, "\"\n");*/
-            assert(0 && "TODO: Bad token");
+			bson_logf(&lib->log, BSON_LOG_NORMAL, "\"\n");
 			ctx->index++;
 			return 0;
 		} break;
@@ -234,17 +248,16 @@ static int interpret_node(const BsonLib *lib, BsonContext *ctx, BsonNode *node) 
     return 1;
 }
 
-static BsonNode *parse_obj(const BsonLib *lib, BsonContext *ctx, size_t *children) {
+static BsonNode *parse_obj(BsonLib *lib, BsonContext *ctx, size_t *children) {
     BsonNode *nodes = bson_vector_new(BsonNode, &lib->allocator);
     BsonNode add;
     while(ctx->index < ctx->ntokens && ctx->tokens[ctx->index].type != TOKEN_OBJECT_CLOSE) {
         if(ctx->tokens[ctx->index].type != TOKEN_KEY) {
-            /*bson_logf(
-                ctx->log, 
+            bson_logf(
+                &lib->log, BSON_LOG_NORMAL, 
                 "[BSON-SYNTAX]: Expected key on line %lu\n", 
                 ctx->tokens[ctx->index].line
-            );*/
-            assert(0 && "TODO: Bad order of tokens when parsing object");
+            );
             ctx->index++;
             continue;
         }
@@ -259,7 +272,7 @@ static BsonNode *parse_obj(const BsonLib *lib, BsonContext *ctx, size_t *childre
     return bson_vector_carr(nodes);
 }
 
-static BsonNode *parse_arr(const BsonLib *lib, BsonContext *ctx, size_t *children) {
+static BsonNode *parse_arr(BsonLib *lib, BsonContext *ctx, size_t *children) {
     BsonNode *nodes = bson_vector_new(BsonNode, &lib->allocator);
     BsonNode add;
     add.key = NULL;
@@ -275,7 +288,7 @@ static BsonNode *parse_arr(const BsonLib *lib, BsonContext *ctx, size_t *childre
 
 
 
-static BsonNode *create_tree(const BsonLib *lib, BsonContext *ctx, BsonResult *result) {
+static BsonNode *create_tree(BsonLib *lib, BsonContext *ctx, BsonResult *result) {
 	BsonNode *root = bsmalloc(sizeof(BsonNode));
     size_t children;
     root->key = NULL;
@@ -293,24 +306,24 @@ static BsonNode *create_tree(const BsonLib *lib, BsonContext *ctx, BsonResult *r
 
 /***   BSON FRONT    ***/
 
-BsonNode *bson_parse(const char * const text, const BsonLib *lib, BsonResult *result) {
-	// bson_logf(extra->log, "[BSON-NEW]: txt %p ext %p\n", (void *) text, (void *) extra);
+BsonNode *bson_parse(const char * const text, BsonLib *lib, BsonResult *result) {
+	bson_logf(&lib->log, BSON_LOG_VERBOSE, "[BSON-NEW]: txt %p lib %p\n", (void *) text, (void *) lib);
 
     /* Get tokens */
 	size_t i;
     size_t     tokenslen;
-	BsonToken *tokens = bson_tokenize(text, &tokenslen, &lib->allocator);
+	BsonToken *tokens = bson_tokenize(text, &tokenslen, &lib->log, &lib->allocator);
 	if(tokens == NULL) {
 		if(result != NULL)
 			*result = BSON_SYNTAX;
 		return NULL;
 	}
 	bson_tokens_dpri(tokens, tokenslen);
-    /*bson_logf(
-        extra->log, 
+    bson_logf(
+        &lib->log, BSON_LOG_VERBOSE, 
         "[BSON-STATUS]: Tokenization finished. %lu tokens from %lu lines.\n",
         tokenslen, tokens[tokenslen - 1].line
-    );*/
+    );
 
     /* Prepare context */
     BsonContext ctx = {
@@ -325,17 +338,16 @@ BsonNode *bson_parse(const char * const text, const BsonLib *lib, BsonResult *re
 	/* Tokens no longer needed */
     bsfree(tokens);
 
-    /*
-    bson_logf(extra->log, "[BSON-STATUS]: `bson_parse()` returning ");
-	if(root == NULL) bson_logf(extra->log, "NULL.\n");
-    else             bson_logf(extra->log, "%p.\n", (void *) root);
-    */
+    
+    bson_logf(&lib->log, BSON_LOG_NORMAL, "[BSON-STATUS]: `bson_parse()` returning ");
+	if(root == NULL) bson_logf(&lib->log, BSON_LOG_NORMAL, "NULL.\n");
+    else             bson_logf(&lib->log, BSON_LOG_NORMAL, "%p.\n", (void *) root);
 
     /* create_tree has already set result */
 	return root;
 }
 
-static void bson_free_rec(BsonNode *node, const BsonLib *lib) {
+static void bson_free_rec(BsonNode *node, BsonLib *lib) {
     if(node->key != NULL)
         bsfree(node->key);
     size_t i;
@@ -354,7 +366,7 @@ static void bson_free_rec(BsonNode *node, const BsonLib *lib) {
     }
 }
 
-void bson_free(BsonNode **bson, const BsonLib *lib) {
+void bson_free(BsonNode **bson, BsonLib *lib) {
 	if(bson == NULL || *bson == NULL)
 		return;
     BsonNode *root = *bson;

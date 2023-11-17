@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
     argc--;
 
     BsonResult result;
-    BsonLib *lib = bson_lib_default(&result, 0);
+    BsonLib *lib = bson_lib_default(&result, BSON_LOG_NONE);
     assert(lib != NULL && "Library could not be created.");
    
     BsonNode *root;
@@ -112,6 +112,8 @@ int main(int argc, char **argv) {
 
         bson_free(&root, lib);
         free(text);
+        printf(":: log ::\n%s\n", bson_lib_log_get(lib));
+        bson_lib_log_clear(lib);
     }
 
     bson_lib_free(&lib);

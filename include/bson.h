@@ -42,9 +42,12 @@ BsonResult  bson_lib_attach_allocator(BsonLib *lib, const BsonAllocator *allocat
 BsonResult  bson_lib_attach_builtin(BsonLib *lib, const BsonBuiltin *builtin);
 BsonResult  bson_lib_attach_builtins(BsonLib *lib, const BsonBuiltin *builtins, size_t nbuiltins);
 
-BsonNode   *bson_file(const char * const file, const BsonLib *lib, BsonResult *result);
-BsonNode   *bson_parse(const char * const text, const BsonLib *lib, BsonResult *result);
-void        bson_free(BsonNode **bson, const BsonLib *lib);
+const char *bson_lib_log_get(BsonLib *lib);
+void        bson_lib_log_clear(BsonLib *lib);
+
+BsonNode   *bson_file(const char * const file, BsonLib *lib, BsonResult *result);
+BsonNode   *bson_parse(const char * const text, BsonLib *lib, BsonResult *result);
+void        bson_free(BsonNode **bson, BsonLib *lib);
 BsonNode   *bson_get(BsonNode *start, const char * const key, BsonResult *result);
 
 #endif

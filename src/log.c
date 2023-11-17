@@ -28,7 +28,7 @@ static void log_grow(BsonLog *log, size_t extra) {
 }
 
 void bson_logc(BsonLog *log, BsonLogLevel level, char c) {
-    if(log == NULL || level < log->priority || log->buffer == NULL)
+    if(log == NULL || log->priority < level || log->buffer == NULL)
         return;
     log->buffer[log->cursor++] = c;
     if(log->cursor >= log->nbuffer)
@@ -36,7 +36,7 @@ void bson_logc(BsonLog *log, BsonLogLevel level, char c) {
 }
 
 void bson_log(BsonLog *log, BsonLogLevel level, const char * const str) {
-    if(log == NULL || level < log->priority || log->buffer == NULL)
+    if(log == NULL || log->priority < level || log->buffer == NULL)
         return;
     size_t len = strlen(str);
     if(log->cursor + len >= log->nbuffer)
@@ -45,7 +45,7 @@ void bson_log(BsonLog *log, BsonLogLevel level, const char * const str) {
 }
 
 void bson_logf(BsonLog *log, BsonLogLevel level, const char * const fmt, ...) {
-    if(log == NULL || level < log->priority || log->buffer == NULL)
+    if(log == NULL || log->priority < level || log->buffer == NULL)
         return;
     va_list args;
     va_start(args, fmt);
