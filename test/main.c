@@ -17,26 +17,26 @@ void print_node(BsonNode *node, size_t tabs, size_t tabsize, int printkey, size_
     *bytes += sizeof(BsonNode);
     if(node->key != NULL)
         *bytes += strlen(node->key) + 1;
-    if(node->type == BSON_STR)
+    if(node->type == BSON_TYPE_STR)
         *bytes += strlen(node->str) + 1;
     size_t i, j;
     TAB;
     if(printkey)
         printf("KEY(%s): ", node->key);
     switch(node->type) {
-        case BSON_LNG:
+        case BSON_TYPE_LNG:
             printf("LONG(%ld)\n", node->lng);
             break;
-        case BSON_DBL:
+        case BSON_TYPE_DBL:
             printf("DOUBLE(%lf)\n", node->dbl);
             break;
-        case BSON_STR:
+        case BSON_TYPE_STR:
             printf("STRING(%s)\n", node->str);
             break;
-        case BSON_BOOL:
+        case BSON_TYPE_BOOL:
             printf("BOOL(%s)\n", node->lng ? "True" : "False");
             break;
-        case BSON_ARR:
+        case BSON_TYPE_ARR:
             printf("ARRAY [\n");
             for(j = 0; j < node->numchildren; j++) {
                 print_node(&node->arr[j], tabs + 1, tabsize, 0, bytes);
@@ -44,7 +44,7 @@ void print_node(BsonNode *node, size_t tabs, size_t tabsize, int printkey, size_
             TAB;
             printf("]\n");
             break;
-        case BSON_OBJ:
+        case BSON_TYPE_OBJ:
             printf("OBJECT {\n");
             for(j = 0; j < node->numchildren; j++) {
                 print_node(&node->obj[j], tabs + 1, tabsize, 1, bytes);
@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
     argv = argv + 1;
     argc--;
 
-    bsonenum result;
+    BsonResult result;
     BsonLib *lib = bson_lib_default(&result, 0);
     assert(lib != NULL && "Library could not be created.");
    

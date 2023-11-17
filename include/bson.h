@@ -3,7 +3,6 @@
 
 #include "enums.h"
 #include "memory.h"
-//#include "log.h"
 #include "tokens.h"
 
 #include <stdint.h>
@@ -16,13 +15,12 @@ typedef struct BsonLib          BsonLib;
 typedef struct BsonNode         BsonNode;
 typedef struct BsonBuiltin      BsonBuiltin;
 
-typedef bsonenum (*pfn_bson_builtin)(BsonNode *dst, const BsonToken *token, void *userdata);
+typedef BsonResult (*pfn_bson_builtin)(BsonNode *dst, const BsonToken *token, void *userdata);
 
 struct BsonBuiltin {
     void               *userdata;
     pfn_bson_builtin    func;
 };
-
 
 struct BsonNode {
     char *key;
@@ -34,22 +32,20 @@ struct BsonNode {
 		struct BsonNode *obj;
     };
     size_t numchildren;
-    bsonenum type;
+    BsonType type;
 };
 
-BsonLib  *bson_lib_default(bsonenum *result, int logging);
-BsonLib  *bson_lib_create(bsonenum *result, int logging, const BsonAllocator *allocator, const BsonBuiltin *builtins, size_t nbuiltins);
-void      bson_lib_free(BsonLib **lib);
-bsonenum  bson_lib_attach_allocator(BsonLib *lib, const BsonAllocator *allocator);
-bsonenum  bson_lib_attach_builtin(BsonLib *lib, const BsonBuiltin *builtin);
-bsonenum  bson_lib_attach_builtins(BsonLib *lib, const BsonBuiltin *builtins, size_t nbuiltins);
+BsonLib    *bson_lib_default(BsonResult *result, BsonLogLevel log);
+BsonLib    *bson_lib_create(BsonResult *result, BsonLogLevel log, const BsonAllocator *allocator, const BsonBuiltin *builtins, size_t nbuiltins);
+void        bson_lib_free(BsonLib **lib);
+BsonResult  bson_lib_attach_allocator(BsonLib *lib, const BsonAllocator *allocator);
+BsonResult  bson_lib_attach_builtin(BsonLib *lib, const BsonBuiltin *builtin);
+BsonResult  bson_lib_attach_builtins(BsonLib *lib, const BsonBuiltin *builtins, size_t nbuiltins);
 
-BsonNode *bson_file(const char * const file, const BsonLib *lib, bsonenum *result);
-BsonNode *bson_parse(const char * const text, const BsonLib *lib, bsonenum *result);
-void      bson_free(BsonNode **bson, const BsonLib *lib);
-BsonNode *bson_get(BsonNode *start, const char * const key, bsonenum *result);
-
-void      bson_dpri(const BsonNode *root);
+BsonNode   *bson_file(const char * const file, const BsonLib *lib, BsonResult *result);
+BsonNode   *bson_parse(const char * const text, const BsonLib *lib, BsonResult *result);
+void        bson_free(BsonNode **bson, const BsonLib *lib);
+BsonNode   *bson_get(BsonNode *start, const char * const key, BsonResult *result);
 
 #endif
 
