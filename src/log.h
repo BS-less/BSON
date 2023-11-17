@@ -3,6 +3,7 @@
 
 #include "memory.h"
 #include "enums.h"
+#include "span.h"
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -18,9 +19,9 @@ typedef struct BsonLog {
 void bson_log_init(BsonLog *log, BsonLogLevel priority, const BsonAllocator *allocator);
 void bson_log_free(BsonLog *log);
 
-void bson_logc(BsonLog *log, BsonLogLevel level, char c);
-void bson_log(BsonLog *log, BsonLogLevel level, const char * const str);
-void bson_logf(BsonLog *log, BsonLogLevel level, const char * const fmt, ...);
+void bson_logc(BsonLog *log, char c);
+void bson_log_span(BsonLog *log, const BsonSpan *span);
+void bson_logf(BsonLog *log, const char * const fmt, ...);
 void bson_log_clear(BsonLog *log);
 
 #endif

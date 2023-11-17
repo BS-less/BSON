@@ -5,7 +5,7 @@
 #include <string.h>
 
 void bson_log_init(BsonLog *log, BsonLogLevel priority, const BsonAllocator *allocator) {
-    if(log == NULL)
+    if(log->buffer == NULL)
         return;
     log->allocator = *allocator;
     log->cursor = 0;
@@ -16,7 +16,7 @@ void bson_log_init(BsonLog *log, BsonLogLevel priority, const BsonAllocator *all
 }
 
 void bson_log_free(BsonLog *log) {
-    if(log == NULL || log->buffer == NULL)
+    if(log->buffer == NULL)
         return;
     log->allocator.pfn_free(log->buffer, log->allocator.userdata);
     log->buffer = NULL;
@@ -27,25 +27,31 @@ static void log_grow(BsonLog *log, size_t extra) {
     log->buffer = log->allocator.pfn_realloc(log->buffer, log->nbuffer, log->allocator.userdata);
 }
 
-void bson_logc(BsonLog *log, BsonLogLevel level, char c) {
-    if(log == NULL || log->priority < level || log->buffer == NULL)
+void bson_logc(BsonLog *log, char c) {
+    if(log->buffer == NULL)
         return;
-    log->buffer[log->cursor++] = c;
-    if(log->cursor >= log->nbuffer)
+    if(log->cursor + 1 >= log->nbuffer)
         log_grow(log, 0);
+    log->buffer[log->cursor++] = c;
+    log->buffer[log->cursor] = '\0';
 }
 
-void bson_log(BsonLog *log, BsonLogLevel level, const char * const str) {
-    if(log == NULL || log->priority < level || log->buffer == NULL)
+void bson_log_span(BsonLog *log, const BsonSpan *span) {
+    if(log->buffer == NULL)
         return;
-    size_t len = strlen(str);
+    size_t len = bson_span_len(span);
     if(log->cursor + len >= log->nbuffer)
         log_grow(log, len);
-    strcpy(log->buffer + log->cursor, str);
+    char *s = span->start;
+    while(s != span->end) {
+        log->buffer[log->cursor] = *s;
+        log->cursor++;
+        *s++;
+    }
 }
 
-void bson_logf(BsonLog *log, BsonLogLevel level, const char * const fmt, ...) {
-    if(log == NULL || log->priority < level || log->buffer == NULL)
+void bson_logf(BsonLog *log, const char * const fmt, ...) {
+    if(log->buffer == NULL)
         return;
     va_list args;
     va_start(args, fmt);
