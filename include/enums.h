@@ -33,7 +33,7 @@ typedef enum {
     BSON_LOG_MAX
 } BsonLogLevel;
 
-const char *bson_res(BsonResult r);
+const char *bson_result(BsonResult r);
 const char *bson_type(BsonType t);
 
 #endif

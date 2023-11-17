@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
     argc--;
 
     BsonResult result;
-    BsonLib *lib = bson_lib_default(&result, BSON_LOG_NONE);
+    BsonLib *lib = bson_lib_default(&result, BSON_LOG_DEBUG);
     assert(lib != NULL && "Library could not be created.");
    
     BsonNode *root;
@@ -103,12 +103,12 @@ int main(int argc, char **argv) {
         fclose(file);
 
         root = bson_parse(text, lib, &result);
+        printf(" > main.c: bson_parse() = '%s'/(%d)\n", bson_result(result), result);
         if(result != BSON_SUCCESS) {
-            puts(" > Error parsing bson file");
             free(text);
             continue;
         }
-        bytes += test_print(root);
+        else bytes += test_print(root);
 
         bson_free(&root, lib);
         free(text);

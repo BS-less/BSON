@@ -123,9 +123,6 @@ static int token_builtin(BsonToken *dst, BsonSpan *all, size_t *lines) {
 }
 
 BsonToken *bson_tokenize(const char *text, size_t *len, BsonLog *log, const BsonAllocator *allocator) {
-	assert(text != NULL && "No text provided for tokenization");
-	assert(len  != NULL && "Len destination must be provided");
-
     BsonToken *tokens = bson_vector_new_cap(BsonToken, 96, allocator);
     
 	size_t i, lines = 1;
@@ -139,8 +136,8 @@ BsonToken *bson_tokenize(const char *text, size_t *len, BsonLog *log, const Bson
         switch(*all.start) {
             /* Syntax error */
             default:
-                bson_span_dpri(&all);
-                bson_logf(log, BSON_LOG_NORMAL, "[BSON-SYNTAX]: Unknown character '%c' @ line %lu.\n", *all.start, lines);
+                if(BSON_LOG_NORMAL <= log->priority)
+                    bson_logf(log, "Syntax error: Unknown character '%c' @ line %lu.\n", *all.start, lines);
                 all.start++;
                 continue;
                 break;
@@ -197,12 +194,10 @@ BsonToken *bson_tokenize(const char *text, size_t *len, BsonLog *log, const Bson
         }
         if(success)
             bson_vector_push(tokens, tok);	
-        else {
-            bson_logf(log, BSON_LOG_NORMAL, "[BSON-SYNTAX]: Could not parse '");
-            char *s = tok.text.start;
-            while(s != tok.text.end)
-                bson_logc(log, BSON_LOG_NORMAL, *s);
-            bson_logf(log, BSON_LOG_NORMAL, "' @ line %lu.\n", lines);
+        else if(BSON_LOG_NORMAL <= log->priority) {
+            bson_logf(log, "Syntax: Could not parse '");
+            bson_log_span(log, &tok.text);
+            bson_logf(log,"' @ line %lu.\n", lines);
         }
         all.start++;
     }

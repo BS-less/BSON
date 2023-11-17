@@ -37,7 +37,7 @@ static BsonResult defbuiltin(BsonNode *dst, const BsonToken *token, void *userda
 struct BsonLib {
     BsonAllocator     allocator;
     BsonBuiltin      *builtins;
-    BsonLog           log;
+    BsonLog          *log;
     int               freeafteruse;
 };
 
@@ -62,8 +62,8 @@ BsonLib *bson_lib_create(BsonResult *result, BsonLogLevel log, const BsonAllocat
         bson_vector_push(lib->builtins, builtins[i]);
     
     if(log > BSON_LOG_NONE && log < BSON_LOG_MAX)
-        bson_log_init(&lib->log, log, allocator);
-    else memset(&lib->log, 0, sizeof(BsonLog));
+        lib->log = bson_log_init(log, allocator);
+    else lib->log = NULL;
 
     *result = BSON_SUCCESS;
     return lib;
@@ -79,11 +79,11 @@ void bson_lib_free(BsonLib **lib) {
 }
 
 const char *bson_lib_log_get(BsonLib *lib) {
-    return lib->log.buffer;
+    return lib->log->buffer;
 }
 
 void bson_lib_log_clear(BsonLib *lib) {
-    bson_log_clear(&lib->log);
+    bson_log_clear(lib->log);
 }
 
 typedef struct BsonContext {
@@ -233,15 +233,11 @@ static int interpret_node(BsonLib *lib, BsonContext *ctx, BsonNode *node) {
             node->numchildren = children;
             break;
         default: {
-			bson_logf(&lib->log, BSON_LOG_NORMAL, "[BSON-SYNTAX]: Unexpected token \"");
-			BsonSpan *badtext = &ctx->tokens[ctx->index].text;
-			char *c = badtext->start;
-			while(*c && c != badtext->end) {
-				bson_logc(&lib->log, BSON_LOG_NORMAL, *c);
-				c++;
-			}
-			bson_logf(&lib->log, BSON_LOG_NORMAL, "\"\n");
-			ctx->index++;
+			if(BSON_LOG_NORMAL <= lib->log->priority) {
+                bson_logf(lib->log, "Syntax: Unexpected token '");
+                bson_log_span(lib->log, &ctx->tokens[ctx->index].text);
+                bson_logf(lib->log, "'\n");
+            }
 			return 0;
 		} break;
     }
@@ -253,11 +249,13 @@ static BsonNode *parse_obj(BsonLib *lib, BsonContext *ctx, size_t *children) {
     BsonNode add;
     while(ctx->index < ctx->ntokens && ctx->tokens[ctx->index].type != TOKEN_OBJECT_CLOSE) {
         if(ctx->tokens[ctx->index].type != TOKEN_KEY) {
-            bson_logf(
-                &lib->log, BSON_LOG_NORMAL, 
-                "[BSON-SYNTAX]: Expected key on line %lu\n", 
-                ctx->tokens[ctx->index].line
-            );
+            if(BSON_LOG_NORMAL <= lib->log->priority) {
+                bson_logf(
+                    lib->log,
+                    "Syntax: Expected key on line %lu\n", 
+                    ctx->tokens[ctx->index].line
+                );
+            }
             ctx->index++;
             continue;
         }
@@ -307,23 +305,26 @@ static BsonNode *create_tree(BsonLib *lib, BsonContext *ctx, BsonResult *result)
 /***   BSON FRONT    ***/
 
 BsonNode *bson_parse(const char * const text, BsonLib *lib, BsonResult *result) {
-	bson_logf(&lib->log, BSON_LOG_VERBOSE, "[BSON-NEW]: txt %p lib %p\n", (void *) text, (void *) lib);
+	if(BSON_LOG_VERBOSE <= lib->log->priority)
+        bson_logf(lib->log, "Status: bson_parse() txt %p lib %p\n", (void *) text, (void *) lib);
 
     /* Get tokens */
 	size_t i;
     size_t     tokenslen;
-	BsonToken *tokens = bson_tokenize(text, &tokenslen, &lib->log, &lib->allocator);
+	BsonToken *tokens = bson_tokenize(text, &tokenslen, lib->log, &lib->allocator);
 	if(tokens == NULL) {
 		if(result != NULL)
 			*result = BSON_SYNTAX;
 		return NULL;
 	}
 	bson_tokens_dpri(tokens, tokenslen);
-    bson_logf(
-        &lib->log, BSON_LOG_VERBOSE, 
-        "[BSON-STATUS]: Tokenization finished. %lu tokens from %lu lines.\n",
-        tokenslen, tokens[tokenslen - 1].line
-    );
+    if(BSON_LOG_VERBOSE <= lib->log->priority) {
+        bson_logf(
+            lib->log, 
+            "Status: Tokenization finished. %lu tokens from %lu lines.\n",
+            tokenslen, tokens[tokenslen - 1].line
+        );
+    }
 
     /* Prepare context */
     BsonContext ctx = {
@@ -338,10 +339,11 @@ BsonNode *bson_parse(const char * const text, BsonLib *lib, BsonResult *result) 
 	/* Tokens no longer needed */
     bsfree(tokens);
 
-    
-    bson_logf(&lib->log, BSON_LOG_NORMAL, "[BSON-STATUS]: `bson_parse()` returning ");
-	if(root == NULL) bson_logf(&lib->log, BSON_LOG_NORMAL, "NULL.\n");
-    else             bson_logf(&lib->log, BSON_LOG_NORMAL, "%p.\n", (void *) root);
+    if(BSON_LOG_NORMAL <= lib->log->priority) {
+        bson_logf(lib->log, "[BSON-STATUS]: `bson_parse()` returning ");
+	    if(root == NULL) bson_logf(lib->log, "NULL.\n");
+        else             bson_logf(lib->log, "%p.\n", (void *) root);
+    }
 
     /* create_tree has already set result */
 	return root;

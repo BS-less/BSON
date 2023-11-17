@@ -16,8 +16,8 @@ typedef struct BsonLog {
     BsonLogLevel    priority;
 } BsonLog;
 
-void bson_log_init(BsonLog *log, BsonLogLevel priority, const BsonAllocator *allocator);
-void bson_log_free(BsonLog *log);
+BsonLog *bson_log_init(BsonLogLevel priority, const BsonAllocator *allocator);
+void bson_log_free(BsonLog **log);
 
 void bson_logc(BsonLog *log, char c);
 void bson_log_span(BsonLog *log, const BsonSpan *span);

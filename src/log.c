@@ -4,22 +4,22 @@
 #include <stdio.h>
 #include <string.h>
 
-void bson_log_init(BsonLog *log, BsonLogLevel priority, const BsonAllocator *allocator) {
-    if(log->buffer == NULL)
-        return;
+BsonLog *bson_log_init(BsonLogLevel priority, const BsonAllocator *allocator) {
+    BsonLog *log = allocator->pfn_malloc(sizeof(BsonLog), allocator->userdata);
     log->allocator = *allocator;
     log->cursor = 0;
     log->nbuffer = 256;
     log->buffer = allocator->pfn_malloc(log->nbuffer, allocator->userdata);
     log->priority = priority;
     memset(log->buffer, 0, log->nbuffer);
+    return log;
 }
 
-void bson_log_free(BsonLog *log) {
-    if(log->buffer == NULL)
+void bson_log_free(BsonLog **log) {
+    if(log == NULL || *log == NULL)
         return;
-    log->allocator.pfn_free(log->buffer, log->allocator.userdata);
-    log->buffer = NULL;
+    (*log)->allocator.pfn_free((*log)->buffer, (*log)->allocator.userdata);
+    (*log)->allocator.pfn_free((*log), (*log)->allocator.userdata);
 }
 
 static void log_grow(BsonLog *log, size_t extra) {
