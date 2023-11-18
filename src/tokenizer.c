@@ -122,7 +122,7 @@ static int token_builtin(BsonToken *dst, BsonSpan *all, size_t *lines) {
     return 1;
 }
 
-BsonToken *bson_tokenize(const char *text, size_t *len, BsonLog *log, const BsonAllocator *allocator) {
+BsonToken *bson_tokenize(const char *text, size_t *len, BsonLog *log, BsonAllocator *allocator) {
     BsonToken *tokens = bson_vector_new_cap(BsonToken, 96, allocator);
     
 	size_t i, lines = 1;

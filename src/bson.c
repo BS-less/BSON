@@ -31,9 +31,6 @@ static BsonResult defbuiltin(BsonNode *dst, const BsonToken *token, void *userda
     return 0;
 }
 
-#define bsmalloc(s)     lib->allocator.pfn_malloc(s, lib->allocator.userdata)
-#define bsrealloc(p, s) lib->allocator.pfn_realloc(p, s, lib->allocator.userdata)
-#define bsfree(p)       lib->allocator.pfn_free(p, lib->allocator.userdata)
 struct BsonLib {
     BsonAllocator     allocator;
     BsonBuiltin      *builtins;
@@ -125,7 +122,7 @@ static int fix_string(BsonLib *lib, char **src) {
             }
         }
     }
-	*src = bsrealloc(*src, strlen(*src) + 1);
+	*src = arealloc(*src, strlen(*src) + 1, &lib->allocator);
     return 1;
 }
 
@@ -164,9 +161,9 @@ static int parse_multistr(BsonLib *lib, BsonNode *dst, BsonContext *ctx) {
         tmp = bson_span_dup(&ctx->tokens[ctx->index].text, &lib->allocator);
         tlen = strlen(tmp);
         slen += tlen;
-        str = bsrealloc(str, slen + 1);
+        str = arealloc(str, slen + 1, &lib->allocator);
         strcat(str, tmp);
-        bsfree(tmp);
+        afree(tmp, &lib->allocator);
         if(ctx->tokens[ctx->index].type == TOKEN_STRING_MULTI_END) {
             ctx->index++;
             break;
@@ -263,7 +260,7 @@ static BsonNode *parse_obj(BsonLib *lib, BsonContext *ctx, size_t *children) {
         ctx->index++;
         if(interpret_node(lib, ctx, &add))
             bson_vector_push(nodes, add);
-        else if(add.key != NULL) bsfree(add.key);
+        else if(add.key != NULL) afree(add.key, &lib->allocator);
         ctx->index++;
     }
     *children = bson_vector_length(nodes);
@@ -277,7 +274,7 @@ static BsonNode *parse_arr(BsonLib *lib, BsonContext *ctx, size_t *children) {
     while(ctx->index < ctx->ntokens && ctx->tokens[ctx->index].type != TOKEN_ARRAY_CLOSE) {
         if(interpret_node(lib, ctx, &add))
             bson_vector_push(nodes, add);
-        else if(add.key != NULL) bsfree(add.key);
+        else if(add.key != NULL) afree(add.key, &lib->allocator);
         ctx->index++;
     }
     *children = bson_vector_length(nodes);
@@ -287,7 +284,7 @@ static BsonNode *parse_arr(BsonLib *lib, BsonContext *ctx, size_t *children) {
 
 
 static BsonNode *create_tree(BsonLib *lib, BsonContext *ctx, BsonResult *result) {
-	BsonNode *root = bsmalloc(sizeof(BsonNode));
+	BsonNode *root = amalloc(sizeof(BsonNode), &lib->allocator);
     size_t children;
     root->key = NULL;
     root->obj = parse_obj(lib, ctx, &children);
@@ -337,7 +334,7 @@ BsonNode *bson_parse(const char * const text, BsonLib *lib, BsonResult *result) 
 	BsonNode *root = create_tree(lib, &ctx, result);
 
 	/* Tokens no longer needed */
-    bsfree(tokens);
+    afree(tokens, &lib->allocator);
 
     if(BSON_LOG_NORMAL <= lib->log->priority) {
         bson_logf(lib->log, "[BSON-STATUS]: `bson_parse()` returning ");
@@ -351,19 +348,19 @@ BsonNode *bson_parse(const char * const text, BsonLib *lib, BsonResult *result) 
 
 static void bson_free_rec(BsonNode *node, BsonLib *lib) {
     if(node->key != NULL)
-        bsfree(node->key);
+        afree(node->key, &lib->allocator);
     size_t i;
     switch(node->type) {
         default:
             break;
         case BSON_TYPE_STR:
-            bsfree(node->str);
+            afree(node->str, &lib->allocator);
             break;
         case BSON_TYPE_OBJ:
         case BSON_TYPE_ARR:
             for(i = 0; i < node->numchildren; i++)
                 bson_free_rec(&node->obj[i], lib);
-            bsfree(node->obj);
+            afree(node->obj, &lib->allocator);
             break;
     }
 }
@@ -376,8 +373,8 @@ void bson_free(BsonNode **bson, BsonLib *lib) {
     size_t i;
     for(i = 0; i < root->numchildren; i++)
         bson_free_rec(&root->obj[i], lib);
-    bsfree(root->obj);
-    bsfree(root);
+    afree(root->obj, &lib->allocator);
+    afree(root, &lib->allocator);
     *bson = NULL;
 }
 

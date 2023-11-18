@@ -1,7 +1,10 @@
 #include "span.h"
 #include "memory.h"
+
 #include <string.h>
 #include <stdio.h>
+
+#include "defalloc.h"
 
 void bson_span_set(BsonSpan * const span, char *str) {
     span->start = str;
@@ -14,7 +17,7 @@ size_t bson_span_len(const BsonSpan * const span) {
 
 char *bson_span_dup(const BsonSpan *span, const BsonAllocator *allocator) {
 	size_t i, len = bson_span_len(span);
-	char *cstr = allocator->pfn_malloc(len + 1, allocator->userdata);
+	char *cstr = amalloc(len + 1, allocator);
 	for(i = 0; i < len; i++)
 		cstr[i] = span->start[i];
 	cstr[i] = '\0';

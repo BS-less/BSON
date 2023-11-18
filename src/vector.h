@@ -5,13 +5,13 @@
 #include <stddef.h>
 
 typedef struct BsonVecMD {
-    size_t        length;
-    size_t        capacity;
-    size_t        stride;
-    BsonAllocator allocator;
+    size_t         length;
+    size_t         capacity;
+    size_t         stride;
+    BsonAllocator *allocator;
 } BsonVecMD;
 
-void            *bson_vector_allocate(size_t stride, size_t capacity, const BsonAllocator *allocator);
+void            *bson_vector_allocate(size_t stride, size_t capacity, BsonAllocator *allocator);
 void             bson_vector_deallocate(void **vec);
 
 const BsonVecMD *bson_vector_metadata(const void *vec);
