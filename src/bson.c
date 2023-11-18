@@ -75,6 +75,23 @@ void bson_lib_free(BsonLib **lib) {
     *lib = NULL;
 }
 
+BsonResult bson_lib_attach_allocator(BsonLib *lib, const BsonAllocator *allocator) {
+    lib->allocator = *allocator;
+    return BSON_SUCCESS;
+}
+
+BsonResult bson_lib_attach_builtin(BsonLib *lib, const BsonBuiltin *builtin) {
+    bson_vector_push(lib->builtins, *builtin);
+    return BSON_SUCCESS;
+}
+
+BsonResult bson_lib_attach_builtins(BsonLib *lib, const BsonBuiltin *builtins, size_t nbuiltins) {
+    size_t i;
+    for(i = 0; i < nbuiltins; i++)
+        bson_vector_push(lib->builtins, builtins[i]);
+    return BSON_SUCCESS;
+}
+
 const char *bson_lib_log_get(BsonLib *lib) {
     return lib->log->buffer;
 }
@@ -298,8 +315,30 @@ static BsonNode *create_tree(BsonLib *lib, BsonContext *ctx, BsonResult *result)
 
 
 
+BsonNode *bson_file(const char * const filepath, BsonLib *lib, BsonResult *result) {
+    FILE *file = fopen(filepath, "r");
+    if(file == NULL) {
+        *result = BSON_FILE_PATH;
+        return NULL;
+    }
 
-/***   BSON FRONT    ***/
+    BsonNode *root;
+    size_t filelen;
+    char *text;
+    fseek(file, 0, SEEK_END);
+    filelen = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    text = amalloc(filelen + 1, &lib->allocator);
+    fread(text, 1, filelen, file);
+    text[filelen] = '\0';
+    fclose(file);
+
+    root = bson_parse(text, lib, result);
+    afree(text, &lib->allocator);
+
+    return root;
+}
 
 BsonNode *bson_parse(const char * const text, BsonLib *lib, BsonResult *result) {
 	if(BSON_LOG_VERBOSE <= lib->log->priority)

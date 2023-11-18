@@ -8,6 +8,11 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define BSON_VERSION_MAJOR  0
+#define BSON_VERSION_MINOR  0
+#define BSON_VERSION_PATCH  0
+#define BSON_VERSION_SUFFIX "dev"
+
 /* Opaque */
 typedef struct BsonLib          BsonLib;
 
@@ -45,7 +50,7 @@ BsonResult  bson_lib_attach_builtins(BsonLib *lib, const BsonBuiltin *builtins, 
 const char *bson_lib_log_get(BsonLib *lib);
 void        bson_lib_log_clear(BsonLib *lib);
 
-BsonNode   *bson_file(const char * const file, BsonLib *lib, BsonResult *result);
+BsonNode   *bson_file(const char * const filepath, BsonLib *lib, BsonResult *result);
 BsonNode   *bson_parse(const char * const text, BsonLib *lib, BsonResult *result);
 void        bson_free(BsonNode **bson, BsonLib *lib);
 BsonNode   *bson_get(BsonNode *start, const char * const key, BsonResult *result);
