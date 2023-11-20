@@ -1,17 +1,15 @@
 #ifndef BSON_H
 #define BSON_H
 
+#include "version.h"
+
 #include "enums.h"
 #include "memory.h"
 #include "tokens.h"
+#include "version.h"
 
 #include <stdint.h>
 #include <stddef.h>
-
-#define BSON_VERSION_MAJOR  0
-#define BSON_VERSION_MINOR  0
-#define BSON_VERSION_PATCH  0
-#define BSON_VERSION_SUFFIX "dev"
 
 /* Opaque */
 typedef struct BsonLib          BsonLib;
