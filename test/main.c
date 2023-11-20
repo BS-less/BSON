@@ -104,12 +104,8 @@ int main(int argc, char **argv) {
 
         root = bson_parse(text, lib, &result);
         printf(" > main.c: bson_parse() = '%s'/(%d)\n", bson_result(result), result);
-        if(result != BSON_SUCCESS) {
-            free(text);
-            continue;
-        }
-        else bytes += test_print(root);
-
+        if(result == BSON_SUCCESS)
+            bytes += test_print(root);
         bson_free(&root, lib);
         free(text);
         printf(":: log ::\n%s\n", bson_lib_log_get(lib));

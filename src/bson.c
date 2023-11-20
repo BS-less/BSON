@@ -45,11 +45,9 @@ BsonLib *bson_lib_default(BsonResult *result, BsonLogLevel log) {
 
 BsonLib *bson_lib_create(BsonResult *result, BsonLogLevel log, const BsonAllocator *allocator, const BsonBuiltin *builtins, size_t nbuiltins) {
     BsonLib *lib = allocator->pfn_malloc(sizeof(BsonLib), allocator->userdata);
-    assert(lib != NULL && "TODO: MEMORY FAILURE");
      
     lib->allocator = *allocator;
     lib->builtins = bson_vector_new_cap(BsonBuiltin, 2, &lib->allocator);
-    assert(lib->builtins != NULL && "TODO: MEMORE FAILURE");
 
     BsonBuiltin builtin = { NULL, defbuiltin };
     bson_vector_push(lib->builtins, builtin);
@@ -104,6 +102,8 @@ typedef struct BsonContext {
     BsonToken *tokens;
     size_t    ntokens;
     size_t     index;
+	size_t     errors;
+	uint64_t   errorflags;
 } BsonContext;
 
 static int fix_string(BsonLib *lib, char **src) {
@@ -252,6 +252,7 @@ static int interpret_node(BsonLib *lib, BsonContext *ctx, BsonNode *node) {
                 bson_log_span(lib->log, &ctx->tokens[ctx->index].text);
                 bson_logf(lib->log, "'\n");
             }
+			ctx->errors++;
 			return 0;
 		} break;
     }
@@ -270,6 +271,7 @@ static BsonNode *parse_obj(BsonLib *lib, BsonContext *ctx, size_t *children) {
                     ctx->tokens[ctx->index].line
                 );
             }
+			ctx->errors++;
             ctx->index++;
             continue;
         }
@@ -303,11 +305,17 @@ static BsonNode *parse_arr(BsonLib *lib, BsonContext *ctx, size_t *children) {
 static BsonNode *create_tree(BsonLib *lib, BsonContext *ctx, BsonResult *result) {
 	BsonNode *root = amalloc(sizeof(BsonNode), &lib->allocator);
     size_t children;
-    root->key = NULL;
-    root->obj = parse_obj(lib, ctx, &children);
+    root->key  = NULL;
     root->type = BSON_TYPE_OBJ; 
+    root->obj  = parse_obj(lib, ctx, &children);
     root->numchildren = children;
-
+	
+	if(ctx->errors != 0) {
+		if(result != NULL)
+			*result = BSON_SYNTAX;
+		bson_free(&root, lib);
+		return NULL;
+	}
 	if(result != NULL)
 		*result = BSON_SUCCESS;
 	return root;
@@ -349,6 +357,8 @@ BsonNode *bson_parse(const char * const text, BsonLib *lib, BsonResult *result) 
     size_t     tokenslen;
 	BsonToken *tokens = bson_tokenize(text, &tokenslen, lib->log, &lib->allocator);
 	if(tokens == NULL) {
+		if(BSON_LOG_NORMAL <= lib->log->priority)
+			bson_logf(lib->log, "Syntax: Tokenization failed.\n");
 		if(result != NULL)
 			*result = BSON_SYNTAX;
 		return NULL;
@@ -367,6 +377,8 @@ BsonNode *bson_parse(const char * const text, BsonLib *lib, BsonResult *result) 
         .tokens = tokens,
         .ntokens = tokenslen,
         .index = 0,
+		.errors = 0,
+		.errorflags = 0x0
     };
 
     /* Parse */
@@ -376,9 +388,11 @@ BsonNode *bson_parse(const char * const text, BsonLib *lib, BsonResult *result) 
     afree(tokens, &lib->allocator);
 
     if(BSON_LOG_NORMAL <= lib->log->priority) {
-        bson_logf(lib->log, "[BSON-STATUS]: `bson_parse()` returning ");
-	    if(root == NULL) bson_logf(lib->log, "NULL.\n");
-        else             bson_logf(lib->log, "%p.\n", (void *) root);
+        bson_logf(
+			lib->log, 
+			"Status: `bson_parse()` returning %p; %lu errors.\n",
+			root, ctx.errors
+		);
     }
 
     /* create_tree has already set result */
@@ -409,7 +423,8 @@ void bson_free(BsonNode **bson, BsonLib *lib) {
 		return;
     BsonNode *root = *bson;
     assert(root->type == BSON_TYPE_OBJ && "Root is not object");
-    size_t i;
+    
+	size_t i;
     for(i = 0; i < root->numchildren; i++)
         bson_free_rec(&root->obj[i], lib);
     afree(root->obj, &lib->allocator);
