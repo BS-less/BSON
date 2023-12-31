@@ -17,26 +17,26 @@ void print_node(BsonNode *node, size_t tabs, size_t tabsize, int printkey, size_
     *bytes += sizeof(BsonNode);
     if(node->key != NULL)
         *bytes += strlen(node->key) + 1;
-    if(node->type == BSON_TYPE_STR)
+    if(node->type == BSON_TYPE_STRING)
         *bytes += strlen(node->str) + 1;
     size_t i, j;
     TAB;
     if(printkey)
         printf("KEY(%s): ", node->key);
     switch(node->type) {
-        case BSON_TYPE_LNG:
+		case BSON_TYPE_LONG:
             printf("LONG(%ld)\n", node->lng);
             break;
-        case BSON_TYPE_DBL:
+		case BSON_TYPE_DOUBLE:
             printf("DOUBLE(%lf)\n", node->dbl);
             break;
-        case BSON_TYPE_STR:
+        case BSON_TYPE_STRING:
             printf("STRING(%s)\n", node->str);
             break;
-        case BSON_TYPE_BOOL:
+		case BSON_TYPE_BOOLEAN:
             printf("BOOL(%s)\n", node->lng ? "True" : "False");
             break;
-        case BSON_TYPE_ARR:
+		case BSON_TYPE_ARRAY:
             printf("ARRAY [\n");
             for(j = 0; j < node->numchildren; j++) {
                 print_node(&node->arr[j], tabs + 1, tabsize, 0, bytes);
@@ -44,7 +44,7 @@ void print_node(BsonNode *node, size_t tabs, size_t tabsize, int printkey, size_
             TAB;
             printf("]\n");
             break;
-        case BSON_TYPE_OBJ:
+		case BSON_TYPE_OBJECT:
             printf("OBJECT {\n");
             for(j = 0; j < node->numchildren; j++) {
                 print_node(&node->obj[j], tabs + 1, tabsize, 1, bytes);

@@ -16,7 +16,7 @@ static BsonResult defbuiltin(BsonNode *dst, const BsonToken *token, void *userda
     bson_span_set(&btrue,  "$true");
     bson_span_set(&bfalse, "$false");
     bson_span_set(&bvoid,  "$void");
-    dst->type = BSON_TYPE_BOOL;
+    dst->type = BSON_TYPE_BOOLEAN;
     dst->numchildren = 0;
     if(bson_span_cmp(&token->text, &btrue) == 0) {
         dst->lng  = 1;
@@ -146,14 +146,28 @@ static int fix_string(BsonLib *lib, char **src) {
 static int parse_lng(BsonNode *dst, BsonToken *src) {
     dst->lng = strtol(src->text.str, NULL, 10);
     dst->numchildren = 0;
-    dst->type = BSON_TYPE_LNG;
+    dst->type = BSON_TYPE_LONG;
     return 1;
+}
+
+static int parse_hex(BsonNode *dst, BsonToken *src) {
+	dst->lng = strtol(src->text.str + 2, NULL, 16);
+	dst->numchildren = 0;
+	dst->type = BSON_TYPE_LONG;
+	return 1;
+}
+
+static int parse_bin(BsonNode *dst, BsonToken *src) {
+	dst->lng = strtol(src->text.str + 2, NULL, 2);
+	dst->numchildren = 0;
+	dst->type = BSON_TYPE_LONG;
+	return 1;
 }
 
 static int parse_dbl(BsonNode *dst, BsonToken *src) {
     dst->dbl = strtod(src->text.str, NULL);
     dst->numchildren = 0;
-    dst->type = BSON_TYPE_DBL;
+    dst->type = BSON_TYPE_DOUBLE;
     return 1;
 }
 
@@ -161,7 +175,7 @@ static int parse_str(BsonLib *lib, BsonNode *dst, BsonToken *src) {
     dst->str = bson_span_dup(&src->text, &lib->allocator);
     fix_string(lib, &dst->str);
     dst->numchildren = 0;
-    dst->type = BSON_TYPE_STR;
+    dst->type = BSON_TYPE_STRING;
     return 1;
 }
 
@@ -191,7 +205,7 @@ static int parse_multistr(BsonLib *lib, BsonNode *dst, BsonContext *ctx) {
     fix_string(lib, &str);
     dst->str         = str;
     dst->numchildren = 0;
-    dst->type        = BSON_TYPE_STR;
+    dst->type        = BSON_TYPE_STRING;
     return 1;
 }
 
@@ -222,9 +236,11 @@ static BsonNode *parse_arr(BsonLib *lib, BsonContext *ctx, size_t *children);
 static int interpret_node(BsonLib *lib, BsonContext *ctx, BsonNode *node) {
     size_t children;
     switch(ctx->tokens[ctx->index].type) {
-        case TOKEN_INTEGER: parse_lng(     node, &ctx->tokens[ctx->index]); break;
-        case TOKEN_DECIMAL: parse_dbl(     node, &ctx->tokens[ctx->index]); break;
-        case TOKEN_STRING:  parse_str(lib, node, &ctx->tokens[ctx->index]); break;
+        case TOKEN_DECIMAL:     parse_lng(     node, &ctx->tokens[ctx->index]); break;
+		case TOKEN_HEXADECIMAL: parse_hex(     node, &ctx->tokens[ctx->index]); break;
+		case TOKEN_BINARY:	    parse_bin(     node, &ctx->tokens[ctx->index]); break;
+		case TOKEN_DOUBLE:      parse_dbl(     node, &ctx->tokens[ctx->index]); break;
+        case TOKEN_STRING:      parse_str(lib, node, &ctx->tokens[ctx->index]); break;
         case TOKEN_STRING_MULTI:
         case TOKEN_STRING_MULTI_END:
             parse_multistr(lib, node, ctx);
@@ -237,13 +253,13 @@ static int interpret_node(BsonLib *lib, BsonContext *ctx, BsonNode *node) {
         case TOKEN_ARRAY_OPEN:
             ctx->index++;
             node->arr = parse_arr(lib, ctx, &children);
-            node->type = BSON_TYPE_ARR;
+            node->type = BSON_TYPE_ARRAY;
             node->numchildren = children;
             break;
         case TOKEN_OBJECT_OPEN:
             ctx->index++;
             node->obj = parse_obj(lib, ctx, &children);
-            node->type = BSON_TYPE_OBJ;
+            node->type = BSON_TYPE_OBJECT;
             node->numchildren = children;
             break;
         default: {
@@ -306,7 +322,7 @@ static BsonNode *create_tree(BsonLib *lib, BsonContext *ctx, BsonResult *result)
 	BsonNode *root = amalloc(sizeof(BsonNode), &lib->allocator);
     size_t children;
     root->key  = NULL;
-    root->type = BSON_TYPE_OBJ; 
+    root->type = BSON_TYPE_OBJECT; 
     root->obj  = parse_obj(lib, ctx, &children);
     root->numchildren = children;
 	
@@ -406,11 +422,11 @@ static void bson_free_rec(BsonNode *node, BsonLib *lib) {
     switch(node->type) {
         default:
             break;
-        case BSON_TYPE_STR:
+		case BSON_TYPE_STRING:
             afree(node->str, &lib->allocator);
             break;
-        case BSON_TYPE_OBJ:
-        case BSON_TYPE_ARR:
+		case BSON_TYPE_OBJECT:
+		case BSON_TYPE_ARRAY:
             for(i = 0; i < node->numchildren; i++)
                 bson_free_rec(&node->obj[i], lib);
             afree(node->obj, &lib->allocator);
@@ -422,7 +438,7 @@ void bson_free(BsonNode **bson, BsonLib *lib) {
 	if(bson == NULL || *bson == NULL)
 		return;
     BsonNode *root = *bson;
-    assert(root->type == BSON_TYPE_OBJ && "Root is not object");
+    assert(root->type == BSON_TYPE_OBJECT && "Root is not object");
     
 	size_t i;
     for(i = 0; i < root->numchildren; i++)
@@ -435,7 +451,7 @@ void bson_free(BsonNode **bson, BsonLib *lib) {
 BsonNode *bson_get(BsonNode *start, const char * const key, BsonResult *result) {
     if(result != NULL)
         *result = BSON_SUCCESS;
-    if(start->type != BSON_TYPE_ARR && start->type != BSON_TYPE_OBJ)
+    if(start->type != BSON_TYPE_ARRAY && start->type != BSON_TYPE_OBJECT)
         return start;
     size_t i;
     for(i = 0; i < start->numchildren; i++) {

@@ -1,5 +1,5 @@
-#ifndef _BSON_ENUM_H_
-#define _BSON_ENUM_H_
+#ifndef BSON_ENUM_H
+#define BSON_ENUM_H
 
 typedef enum {
     BSON_FAILURE = 0,
@@ -15,12 +15,13 @@ typedef enum {
 } BsonResult;
 
 typedef enum {
-    BSON_TYPE_LNG = 0,
-    BSON_TYPE_DBL,
-    BSON_TYPE_STR,
-    BSON_TYPE_ARR,
-    BSON_TYPE_OBJ,
-    BSON_TYPE_BOOL,
+	BSON_TYPE_FIRST = -8,
+    BSON_TYPE_LONG,
+    BSON_TYPE_DOUBLE,
+    BSON_TYPE_STRING,
+    BSON_TYPE_ARRAY,
+    BSON_TYPE_OBJECT,
+    BSON_TYPE_BOOLEAN,
 	BSON_TYPE_UNKNOWN,
     BSON_TYPE_MAX
 } BsonType;

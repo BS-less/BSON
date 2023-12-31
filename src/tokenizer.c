@@ -17,10 +17,22 @@ static int is_keychar(char c) {
     );
 }
 
-static int is_digit(char c) {
+static int is_decimal(char c) {
 	return (
 		(c >= '0' && c <= '9')
 	);
+}
+
+static int is_hexadecimal(char c) {
+	return (
+		(c >= '0' && c <= '9') ||
+		(c >= 'A' && c <= 'F') ||
+		(c >= 'a' && c <= 'f')
+	);
+}
+
+static int is_binary(char c) {
+	return c == '0' || c == '1';
 }
 
 static int is_escapechar(char c) {
@@ -68,18 +80,51 @@ static int token_string(BsonToken *dst, BsonSpan *all, size_t *lines) {
 static int token_key(BsonToken *dst, BsonSpan *all, size_t *lines) {
 	dst->text.start = all->start;
 	do all->start++;
-    while(is_keychar(*all->start) || is_digit(*all->start));
+    while(is_keychar(*all->start) || is_decimal(*all->start));
     dst->text.end   = all->start;
 	dst->line       = *lines;
 	dst->type       = TOKEN_KEY;
 	return 1;
 }
 
+static int token_hexadecimal(BsonToken *dst, BsonSpan *all, size_t *lines) {
+	dst->text.start = all->start;
+	all->start += 2;
+	while(all->start != all->end && is_hexadecimal(*all->start))
+		all->start++;
+	dst->text.end = all->start;
+	dst->line = *lines;
+	dst->type = TOKEN_HEXADECIMAL;
+	return 1;
+}
+
+static int token_binary(BsonToken *dst, BsonSpan *all, size_t *lines) {
+	dst->text.start = all->start;
+	all->start += 2;
+	while(all->start != all->end && is_binary(*all->start))
+		all->start++;
+	dst->text.end = all->start;
+	dst->line = *lines;
+	dst->type = TOKEN_BINARY;
+	return 1;
+}
+
 static int token_num(BsonToken *dst, BsonSpan *all, size_t *lines) {
+	
+	if(*all->start == '0') {
+		const char *basesym = all->start + 1;
+		if(basesym == all->end)
+			return 0;
+		if(*basesym == 'x')
+			return token_hexadecimal(dst, all, lines);
+		if(*basesym == 'b')
+			return token_binary(dst, all, lines);
+	}
+
 	dst->text.start = all->start;
 	int decimals = 0, digits = 0, nonnum = 0;
-	while(*all->start && (is_digit(*all->start) || *all->start == '.')) {
-		if(is_digit(*all->start))
+	while(*all->start && (is_decimal(*all->start) || *all->start == '.')) {
+		if(is_decimal(*all->start))
 			digits++;
 		else if(*all->start)
 			decimals++;
@@ -91,7 +136,7 @@ static int token_num(BsonToken *dst, BsonSpan *all, size_t *lines) {
 	}
 	dst->text.end   = all->start;
 	dst->line       = *lines;
-	dst->type       = (decimals) ? TOKEN_DECIMAL : TOKEN_INTEGER;
+	dst->type       = (decimals) ? TOKEN_DOUBLE : TOKEN_DECIMAL;
 	if(nonnum != 0 || digits == 0 || decimals > 1)
 		return 0;
 	return 1;
@@ -218,8 +263,10 @@ static void token_print(const BsonToken *tok) {
 
 	switch(tok->type) {
 		case TOKEN_KEY:				  printf("KEY             "); break;
-		case TOKEN_INTEGER:			  printf("INTEGER         "); break;
 		case TOKEN_DECIMAL:			  printf("DECIMAL         "); break;
+		case TOKEN_HEXADECIMAL:       printf("HEXADECIMAL     "); break;
+		case TOKEN_BINARY: 			  printf("BINARY          "); break;
+		case TOKEN_DOUBLE:			  printf("DOUBLE          "); break;
 		case TOKEN_STRING:			  printf("STRING          "); break;
         case TOKEN_STRING_MULTI:      printf("STRING_MULTI    "); break;
         case TOKEN_STRING_MULTI_END:  printf("STRING_MULTI_END"); break;
